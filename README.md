@@ -80,6 +80,7 @@ $ curl http://aiclipx-staging-alb-123456789.ap-southeast-1.elb.amazonaws.com/hea
 
 ---
 
+<<<<<<< HEAD
 *This trial demonstrates a functional DevOps pipeline that balances simplicity with production readiness, providing a foundation that can be extended as requirements evolve.*
 
 ## Health Check Strategy
@@ -98,3 +99,6 @@ $ curl http://aiclipx-staging-alb-123456789.ap-southeast-1.elb.amazonaws.com/hea
   "version": "1.0.0",
   "branch": "trials-devops"
 }
+=======
+*This trial demonstrates a functional DevOps pipeline that balances simplicity with production readiness, providing a foundation that can be extended as requirements evolve.*
+>>>>>>> d55b87aad281468294e339231698c9d3cfa6bc5c
