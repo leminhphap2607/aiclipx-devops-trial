@@ -1,0 +1,14 @@
+# Staging environment configuration
+deployment_branch_policy:
+  protected_branches: false
+  custom_branch_policies: true
+  
+environment_url: https://staging.aiclipx.com
+
+# Environment variables are set in GitHub UI
+# Required vars:
+# - ECS_CLUSTER: aiclipx-staging
+# - ECS_SERVICE: aiclipx-service
+
+# Deployment protection rules (none for staging)
+# This allows auto-deployment from CI on trials-devops branch
