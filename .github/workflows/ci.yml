@@ -64,7 +64,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       
-      - name: Configure AWS credentials
+      - name: Install AWS CLI
+        run: |
+          curl -s "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip -q awscliv2.zip
+          sudo ./aws/install --update
+      
+      - name: Configure AWS
         run: |
           mkdir -p ~/.aws
           echo "[default]" > ~/.aws/config
@@ -74,11 +80,8 @@ jobs:
           echo "[default]" > ~/.aws/credentials
           echo "aws_access_key_id = ${{ secrets.AWS_ACCESS_KEY_ID }}" >> ~/.aws/credentials
           echo "aws_secret_access_key = ${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
-          
-          echo "AWS configured successfully"
-          aws sts get-caller-identity
       
-      - name: Login to Amazon ECR
+      - name: Login to ECR
         run: |
           aws ecr get-login-password --region ap-southeast-1 | \
             docker login --username AWS --password-stdin 718281698048.dkr.ecr.ap-southeast-1.amazonaws.com
@@ -94,7 +97,6 @@ jobs:
           docker push 718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx-app:${{ github.sha }}
           docker push 718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx-app:latest
       
-      - name: Success message
+      - name: Success
         run: |
-          echo "✅ CI/CD Pipeline completed successfully!"
-          echo "Image: 718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx-app:${{ github.sha }}"
+          echo "✅ CI/CD completed successfully!"
