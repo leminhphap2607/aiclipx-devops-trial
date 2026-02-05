@@ -46,16 +46,61 @@ def after_request(response):
 
 @app.route('/health')
 def health():
-    """Health check endpoint for load balancers and monitoring"""
-    return jsonify({
-        'status': 'healthy',
-        'service': 'AiClipX API',
-        'timestamp': datetime.utcnow().isoformat() + 'Z',
-        'version': '1.0.0',
-        'environment': os.getenv('NODE_ENV', 'development'),
-        'branch': 'trials-devops',
-        'request_id': request.request_id
-    }), 200
+    """Enhanced health check with system info"""
+    try:
+        # Try to import psutil if available
+        try:
+            import psutil
+            import socket
+            psutil_available = True
+        except ImportError:
+            psutil_available = False
+            logger.warning("psutil not available, returning basic health check")
+        
+        if psutil_available:
+            # Get system info
+            cpu_percent = psutil.cpu_percent(interval=0.1)
+            memory = psutil.virtual_memory()
+            disk = psutil.disk_usage('/')
+            
+            return jsonify({
+                'status': 'healthy',
+                'service': 'AiClipX API',
+                'timestamp': datetime.utcnow().isoformat() + 'Z',
+                'version': '1.0.0',
+                'environment': os.getenv('NODE_ENV', 'development'),
+                'branch': 'trials-devops',
+                'system': {
+                    'cpu_percent': cpu_percent,
+                    'memory_percent': memory.percent,
+                    'disk_percent': disk.percent,
+                    'hostname': socket.gethostname()
+                },
+                'request_id': request.request_id
+            }), 200
+        else:
+            # Fallback to basic health check without psutil
+            return jsonify({
+                'status': 'healthy',
+                'service': 'AiClipX API',
+                'timestamp': datetime.utcnow().isoformat() + 'Z',
+                'version': '1.0.0',
+                'environment': os.getenv('NODE_ENV', 'development'),
+                'branch': 'trials-devops',
+                'system': {
+                    'note': 'System metrics unavailable (psutil not installed)'
+                },
+                'request_id': request.request_id
+            }), 200
+            
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return jsonify({
+            'status': 'degraded',
+            'error': str(e),
+            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'request_id': request.request_id
+        }), 503
 
 @app.route('/')
 def index():
@@ -137,38 +182,3 @@ if __name__ == '__main__':
         port=port,
         debug=(os.getenv('NODE_ENV') == 'development')
     )
-@app.route('/health')
-def health():
-    """Enhanced health check with system info"""
-    import psutil
-    import socket
-    
-    try:
-        # Get system info
-        cpu_percent = psutil.cpu_percent(interval=0.1)
-        memory = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
-        
-        return jsonify({
-            'status': 'healthy',
-            'service': 'AiClipX API',
-            'timestamp': datetime.utcnow().isoformat() + 'Z',
-            'version': '1.0.0',
-            'environment': os.getenv('NODE_ENV', 'development'),
-            'branch': 'trials-devops',
-            'system': {
-                'cpu_percent': cpu_percent,
-                'memory_percent': memory.percent,
-                'disk_percent': disk.percent,
-                'hostname': socket.gethostname()
-            },
-            'request_id': request.request_id
-        }), 200
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        return jsonify({
-            'status': 'degraded',
-            'error': str(e),
-            'timestamp': datetime.utcnow().isoformat() + 'Z',
-            'request_id': request.request_id
-        }), 503
