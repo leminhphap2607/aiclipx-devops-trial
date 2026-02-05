@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [trials-devops]
 
+env:
+  # Set default values for AWS configuration
+  AWS_REGION: ${{ secrets.AWS_REGION || 'ap-southeast-1' }}  # Default to Singapore region if not set
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY || 'aiclipx-api' }}
+
 jobs:
   security-scan:
     runs-on: ubuntu-latest
@@ -68,27 +74,38 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
           role-session-name: GitHubActions-${{ github.run_id }}
+          audience: sts.amazonaws.com  # Added this line
       
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
       
-      - name: Build Docker image
-        run: |
-          docker build \
-            -t ${{ secrets.ECR_REGISTRY }}:${{ github.sha }} \
-            -t ${{ secrets.ECR_REGISTRY }}:latest \
-            ./src
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
       
-      - name: Push Docker image to ECR
-        run: |
-          docker push ${{ secrets.ECR_REGISTRY }}:${{ github.sha }}
-          docker push ${{ secrets.ECR_REGISTRY }}:latest
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./src
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       
       - name: Generate deployment manifest
         run: |
           echo "COMMIT_SHA=${{ github.sha }}" >> $GITHUB_ENV
           echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_ENV
           echo "TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+          echo "ECR_IMAGE=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" >> $GITHUB_ENV
+      
+      - name: Output deployment info
+        run: |
+          echo "✅ Build and push completed successfully!"
+          echo "📦 Image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+          echo "🏷️  Tags: latest, ${{ github.sha }}"
+          echo "📍 Region: ${{ env.AWS_REGION }}"
