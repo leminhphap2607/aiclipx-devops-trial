@@ -64,92 +64,37 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       
-      # 🔥 FIXED: AWS config với region cứng và đúng format
       - name: Configure AWS credentials
         run: |
-          # Tạo thư mục .aws
           mkdir -p ~/.aws
+          echo "[default]" > ~/.aws/config
+          echo "region = ap-southeast-1" >> ~/.aws/config
+          echo "output = json" >> ~/.aws/config
           
-          # Tạo config file với region đúng
-          cat > ~/.aws/config << 'EOF'
-[default]
-region = ap-southeast-1
-output = json
-EOF
+          echo "[default]" > ~/.aws/credentials
+          echo "aws_access_key_id = ${{ secrets.AWS_ACCESS_KEY_ID }}" >> ~/.aws/credentials
+          echo "aws_secret_access_key = ${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
           
-          # Tạo credentials file
-          cat > ~/.aws/credentials << EOF
-[default]
-aws_access_key_id = ${{ secrets.AWS_ACCESS_KEY_ID }}
-aws_secret_access_key = ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-EOF
-          
-          # Kiểm tra file
-          echo "=== AWS Config ==="
-          cat ~/.aws/config
-          echo ""
-          echo "=== AWS Credentials ==="
-          # Ẩn secret key, chỉ hiển thị độ dài
-          echo "aws_access_key_id = ${{ secrets.AWS_ACCESS_KEY_ID }}"
-          echo "aws_secret_access_key = [HIDDEN] (length: ${#{{ secrets.AWS_SECRET_ACCESS_KEY }}})"
-          
-          # Test AWS credentials
-          echo ""
-          echo "=== Testing AWS credentials ==="
+          echo "AWS configured successfully"
           aws sts get-caller-identity
-          echo "✅ AWS credentials configured successfully!"
       
-      # 🔥 FIXED: Login ECR với registry đúng
       - name: Login to Amazon ECR
         run: |
-          ECR_REGISTRY="718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx-app"
-          echo "Logging into ECR: $ECR_REGISTRY"
-          
           aws ecr get-login-password --region ap-southeast-1 | \
-            docker login --username AWS --password-stdin "718281698048.dkr.ecr.ap-southeast-1.amazonaws.com"
-          echo "✅ Logged into ECR successfully!"
+            docker login --username AWS --password-stdin 718281698048.dkr.ecr.ap-southeast-1.amazonaws.com
       
-      # 🔥 FIXED: Build với đúng tag
       - name: Build Docker image
         run: |
           cd src
-          IMAGE_TAG="718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx-app:${{ github.sha }}"
-          IMAGE_LATEST="718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx-app:latest"
-          
-          echo "Building Docker image..."
-          echo "Image tag: $IMAGE_TAG"
-          echo "Latest tag: $IMAGE_LATEST"
-          
-          docker build -t "$IMAGE_TAG" .
-          docker tag "$IMAGE_TAG" "$IMAGE_LATEST"
-          
-          echo "✅ Docker build completed!"
-          docker images | grep "718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx-app"
+          docker build -t 718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx-app:${{ github.sha }} .
+          docker tag 718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx-app:${{ github.sha }} 718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx-app:latest
       
-      # 🔥 FIXED: Push với đúng registry
       - name: Push Docker image
         run: |
-          IMAGE_TAG="718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx-app:${{ github.sha }}"
-          IMAGE_LATEST="718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx-app:latest"
-          
-          echo "Pushing images to ECR..."
-          echo "Pushing: $IMAGE_TAG"
-          docker push "$IMAGE_TAG"
-          
-          echo "Pushing: $IMAGE_LATEST"
-          docker push "$IMAGE_LATEST"
-          
-          echo "✅ All images pushed successfully!"
+          docker push 718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx-app:${{ github.sha }}
+          docker push 718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx-app:latest
       
       - name: Success message
         run: |
-          echo "🎉🎉🎉 CI/CD PIPELINE COMPLETED SUCCESSFULLY! 🎉🎉🎉"
-          echo "=============================================="
-          echo "📦 ECR Registry: 718281698048.dkr.ecr.ap-southeast-1.amazonaws.com"
-          echo "📁 Repository: aiclipx-app"
-          echo "🏷️ Image Tags:"
-          echo "   - ${{ github.sha }}"
-          echo "   - latest"
-          echo "📍 AWS Region: ap-southeast-1"
-          echo "⏰ Completed at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-          echo "=============================================="
+          echo "✅ CI/CD Pipeline completed successfully!"
+          echo "Image: 718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx-app:${{ github.sha }}"
