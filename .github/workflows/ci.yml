@@ -6,12 +6,6 @@ on:
   pull_request:
     branches: [trials-devops]
 
-env:
-  # Set default values for AWS configuration
-  AWS_REGION: ${{ secrets.AWS_REGION || 'ap-southeast-1' }}  # Default to Singapore region if not set
-  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
-  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY || 'aiclipx-api' }}
-
 jobs:
   security-scan:
     runs-on: ubuntu-latest
@@ -70,42 +64,36 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: GitHubActions-${{ github.run_id }}
-          audience: sts.amazonaws.com  # Added this line
+      # 🔥 CÁCH NHANH NHẤT: Dùng Access Key trực tiếp
+      - name: Configure AWS CLI
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set region ${{ secrets.AWS_REGION }}
+          aws configure set output json
+      
+      - name: Verify AWS credentials
+        run: aws sts get-caller-identity
       
       - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v4
-        with:
-          context: ./src
-          push: true
-          tags: |
-            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      
-      - name: Generate deployment manifest
         run: |
-          echo "COMMIT_SHA=${{ github.sha }}" >> $GITHUB_ENV
-          echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_ENV
-          echo "TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
-          echo "ECR_IMAGE=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" >> $GITHUB_ENV
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login \
+            --username AWS \
+            --password-stdin ${{ secrets.ECR_REGISTRY }}
       
-      - name: Output deployment info
+      - name: Build Docker image
         run: |
-          echo "✅ Build and push completed successfully!"
-          echo "📦 Image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
-          echo "🏷️  Tags: latest, ${{ github.sha }}"
-          echo "📍 Region: ${{ env.AWS_REGION }}"
+          cd src
+          docker build -t ${{ secrets.ECR_REGISTRY }}:latest .
+          docker tag ${{ secrets.ECR_REGISTRY }}:latest ${{ secrets.ECR_REGISTRY }}:${{ github.sha }}
+      
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.ECR_REGISTRY }}:latest
+          docker push ${{ secrets.ECR_REGISTRY }}:${{ github.sha }}
+      
+      - name: Log success
+        run: |
+          echo "✅ Docker image pushed successfully!"
+          echo "📦 Image: ${{ secrets.ECR_REGISTRY }}:${{ github.sha }}"
+          echo "🏷️ Tag: latest"
