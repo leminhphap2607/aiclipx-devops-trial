@@ -1,0 +1,81 @@
+{
+  "Alarms": [
+    {
+      "AlarmName": "aiclipx-high-error-rate",
+      "AlarmDescription": "Triggers when there are too many 5XX errors",
+      "MetricName": "HTTPCode_Target_5XX_Count",
+      "Namespace": "AWS/ApplicationELB",
+      "Statistic": "Sum",
+      "Period": 300,
+      "EvaluationPeriods": 2,
+      "Threshold": 50,
+      "ComparisonOperator": "GreaterThanThreshold",
+      "TreatMissingData": "breaching",
+      "Dimensions": [
+        {
+          "Name": "LoadBalancer",
+          "Value": "app/aiclipx-alb/xxxxxxxx"
+        }
+      ],
+      "AlarmActions": [
+        "arn:aws:sns:ap-southeast-1:ACCOUNT_ID_PLACEHOLDER:aiclipx-alerts"
+      ],
+      "OKActions": [
+        "arn:aws:sns:ap-southeast-1:ACCOUNT_ID_PLACEHOLDER:aiclipx-alerts"
+      ],
+      "InsufficientDataActions": [
+        "arn:aws:sns:ap-southeast-1:ACCOUNT_ID_PLACEHOLDER:aiclipx-alerts"
+      ]
+    },
+    {
+      "AlarmName": "aiclipx-high-cpu",
+      "AlarmDescription": "Triggers when CPU usage is too high",
+      "MetricName": "CPUUtilization",
+      "Namespace": "AWS/ECS",
+      "Statistic": "Average",
+      "Period": 300,
+      "EvaluationPeriods": 3,
+      "Threshold": 80.0,
+      "ComparisonOperator": "GreaterThanThreshold",
+      "TreatMissingData": "missing",
+      "Dimensions": [
+        {
+          "Name": "ClusterName",
+          "Value": "aiclipx-cluster"
+        },
+        {
+          "Name": "ServiceName",
+          "Value": "aiclipx-service"
+        }
+      ],
+      "AlarmActions": [
+        "arn:aws:sns:ap-southeast-1:ACCOUNT_ID_PLACEHOLDER:aiclipx-alerts"
+      ]
+    },
+    {
+      "AlarmName": "aiclipx-low-memory",
+      "AlarmDescription": "Triggers when memory usage is too high",
+      "MetricName": "MemoryUtilization",
+      "Namespace": "AWS/ECS",
+      "Statistic": "Average",
+      "Period": 300,
+      "EvaluationPeriods": 2,
+      "Threshold": 85.0,
+      "ComparisonOperator": "GreaterThanThreshold",
+      "TreatMissingData": "missing",
+      "Dimensions": [
+        {
+          "Name": "ClusterName",
+          "Value": "aiclipx-cluster"
+        },
+        {
+          "Name": "ServiceName",
+          "Value": "aiclipx-service"
+        }
+      ],
+      "AlarmActions": [
+        "arn:aws:sns:ap-southeast-1:ACCOUNT_ID_PLACEHOLDER:aiclipx-alerts"
+      ]
+    }
+  ]
+}

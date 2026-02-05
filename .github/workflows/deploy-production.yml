@@ -1,0 +1,88 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Image tag or commit SHA to deploy'
+        required: true
+        default: 'latest'
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Manual approval step
+        run: |
+          echo "🚀 Starting production deployment"
+          echo "Approved by: ${{ github.actor }}"
+          echo "Deploying version: ${{ github.event.inputs.version }}"
+          
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: GitHubActions-Production-${{ github.run_id }}
+          
+      - name: Download task definition template
+        run: |
+          cp infrastructure/ecs/task-definition.json infrastructure/ecs/task-definition-production.json
+          
+      - name: Replace placeholders in task definition
+        run: |
+          if [ "${{ github.event.inputs.version }}" = "latest" ]; then
+            IMAGE_TAG="latest"
+          else
+            IMAGE_TAG="${{ github.event.inputs.version }}"
+          fi
+          
+          sed -i "s|TAG_PLACEHOLDER|$IMAGE_TAG|g" infrastructure/ecs/task-definition-production.json
+          sed -i "s|ACCOUNT_ID_PLACEHOLDER|$(aws sts get-caller-identity --query Account --output text)|g" infrastructure/ecs/task-definition-production.json
+          
+      - name: Register task definition
+        run: |
+          aws ecs register-task-definition \
+            --cli-input-json file://infrastructure/ecs/task-definition-production.json \
+            --region ${{ secrets.AWS_REGION }}
+            
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --service ${{ vars.ECS_SERVICE }} \
+            --task-definition aiclipx-task \
+            --force-new-deployment \
+            --region ${{ secrets.AWS_REGION }}
+            
+      - name: Wait for deployment to complete
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --service ${{ vars.ECS_SERVICE }} \
+            --region ${{ secrets.AWS_REGION }}
+            
+      - name: Verify deployment
+        run: |
+          echo "✅ Production deployment completed successfully!"
+          echo "📊 Service status:"
+          aws ecs describe-services \
+            --cluster ${{ vars.ECS_CLUSTER }} \
+            --service ${{ vars.ECS_SERVICE }} \
+            --region ${{ secrets.AWS_REGION }} \
+            --query 'services[0].[status,runningCount,desiredCount,deployments]'
+            
+      - name: Send deployment notification
+        run: |
+          echo "🚀 Production deployment completed!"
+          echo "Version: ${{ github.event.inputs.version }}"
+          echo "Deployed by: ${{ github.actor }}"
+          echo "Time: $(date)"

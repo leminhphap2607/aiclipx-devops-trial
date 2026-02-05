@@ -1,0 +1,3 @@
+AWS_ROLE_ARN           = arn:aws:iam::[YOUR_ACCOUNT_ID]:role/GitHubActions-ECS-Deploy
+AWS_REGION             = ap-southeast-1
+ECR_REGISTRY           = [YOUR_ACCOUNT_ID].dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx-app
