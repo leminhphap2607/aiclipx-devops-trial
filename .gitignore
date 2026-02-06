@@ -1,0 +1,31 @@
+# Terraform local files
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+
+# Terraform lock file (có 2 lựa chọn)
+# Nếu làm team thì giữ file này
+# Nếu làm demo cá nhân có thể ignore
+.terraform.lock.hcl
+
+# Sensitive variable files
+*.tfvars
+*.tfvars.json
+
+# Override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# CLI config
+.terraformrc
+terraform.rc
+
+# Mac / Windows noise
+.DS_Store
+Thumbs.db
+
+# VSCode
+.vscode/
