@@ -52,12 +52,12 @@ jobs:
         run: |
           docker build \
             -f ../infrastructure/Dockerfile \
-            -t $ECR_REGISTRY/aiclipx/${{ secrets.ENV }}:latest \
+            -t $ECR_REGISTRY/aiclipx/${{ secrets.ENV }}:${{ github.sha }} \
             application-example
 
-          docker push $ECR_REGISTRY/aiclipx/${{ secrets.ENV }}:latest
+          docker push $ECR_REGISTRY/aiclipx/${{ secrets.ENV }}:${{ github.sha }}
 
-          echo "image=$ECR_REGISTRY/aiclipx/${{ secrets.ENV }}:latest" >> $GITHUB_OUTPUT
+          echo "image=$ECR_REGISTRY/aiclipx/${{ secrets.ENV }}:${{ github.sha }}" >> $GITHUB_OUTPUT
 
       # Render ECS task definition
       - name: Fill in the new image ID in the Amazon ECS task definition
