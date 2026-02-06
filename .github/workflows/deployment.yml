@@ -51,7 +51,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           docker build \
-            -f ./infrastructure/Dockerfile \
+            -f ./Infrastructure/Dockerfile \
             -t $ECR_REGISTRY/aiclipx/${{ secrets.ENV }}:${{ github.sha }} \
             application-example
 
