@@ -7,29 +7,42 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    environment: staging 
+    environment: staging
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_Region }}
+      ENV: ${{ secrets.ENV }}
+      ECS_CLUSTER: aiclipx-${{ secrets.ENV }}
+      ECS_SERVICE: ${{ secrets.ENV }}-v1
+      TASK_FAMILY: staging-v1
+      CONTAINER_NAME: aiclipx-${{ secrets.ENV }}
 
     steps:
+      # =========================
+      # Checkout source
+      # =========================
       - name: Checkout source
         uses: actions/checkout@v3
 
-      # Setup Node để chạy test
+      # =========================
+      # Setup Node & Test
+      # =========================
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      # Install dependencies trong thư mục application
       - name: Install dependencies
         run: npm install
         working-directory: application-example
 
-      # Run tests
       - name: Run tests
         run: npm test
         working-directory: application-example
 
+      # =========================
       # AWS Credentials
+      # =========================
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -37,42 +50,69 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_Region }}
 
-      # Login ECR
+      # =========================
+      # Login to ECR
+      # =========================
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
         with:
-          mask-password: 'true'
+          mask-password: true
 
+      # =========================
       # Build & Push Docker image
+      # =========================
       - name: Build, tag, and push image to Amazon ECR
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build \
-            -f ./Infrastructure/Dockerfile \
-            -t $ECR_REGISTRY/aiclipx/${{ secrets.ENV }}:${{ github.sha }} \
+            -f Infrastructure/Dockerfile \
+            -t $ECR_REGISTRY/aiclipx/${ENV}:${IMAGE_TAG} \
             application-example
 
-          docker push $ECR_REGISTRY/aiclipx/${{ secrets.ENV }}:${{ github.sha }}
+          docker push $ECR_REGISTRY/aiclipx/${ENV}:${IMAGE_TAG}
 
-          echo "image=$ECR_REGISTRY/aiclipx/${{ secrets.ENV }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "image=$ECR_REGISTRY/aiclipx/${ENV}:${IMAGE_TAG}" >> $GITHUB_OUTPUT
 
-      # Render ECS task definition
-      - name: Fill in the new image ID in the Amazon ECS task definition
+      # =========================
+      # Fetch current ECS task definition
+      # =========================
+      - name: Fetch current ECS task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${TASK_FAMILY} \
+            --query taskDefinition \
+            | jq 'del(
+                .taskDefinitionArn,
+                .revision,
+                .status,
+                .requiresAttributes,
+                .compatibilities,
+                .registeredAt,
+                .registeredBy
+              )' > task-definition.json
+
+      # =========================
+      # Render new task definition with new image
+      # =========================
+      - name: Render ECS task definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: Infrastructure/nodejs-app-task-definition.json
-          container-name: aiclipx-${{ secrets.Env }}
+          task-definition: task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
           image: ${{ steps.build-image.outputs.image }}
 
-      # Deploy ECS
+      # =========================
+      # Deploy ECS service
+      # =========================
       - name: Deploy Amazon ECS task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ secrets.Env }}-v1
-          cluster: aiclipx-${{ secrets.Env }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
