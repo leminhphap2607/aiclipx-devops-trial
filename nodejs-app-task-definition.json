@@ -84,8 +84,5 @@
         "cpuArchitecture": "X86_64",
         "operatingSystemFamily": "LINUX"
     },
-    "registeredAt": "2026-02-06T00:17:09.774Z",
-    "registeredBy": "arn:aws:iam::718281698048:user/leminhphap",
-    "enableFaultInjection": true,
     "tags": []
 }
