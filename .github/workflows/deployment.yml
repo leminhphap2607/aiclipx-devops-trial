@@ -33,9 +33,9 @@ jobs:
           # Build a docker container and
           # push it to ECR so that it can
           # be deployed to ECS.
-          docker build -t $ECR_REGISTRY/$REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$REPOSITORY:$IMAGE_TAG
-          echo "image=$ECR_REGISTRY/$REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT    
+          docker build -t 718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx/staging .
+          docker push 718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx/staging
+          echo "image=718281698048.dkr.ecr.ap-southeast-1.amazonaws.com/aiclipx/staging" >> $GITHUB_OUTPUT    
 
       - name: Fill in the new image ID in the Amazon ECS task definition
         id: task-def
@@ -48,6 +48,6 @@ jobs:
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: nodejs-app-service
-          cluster: DevCluster
+          service: staging-v1
+          cluster: aiclipx-staging
           wait-for-service-stability: true
