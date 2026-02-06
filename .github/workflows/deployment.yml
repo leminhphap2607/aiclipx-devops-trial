@@ -64,7 +64,7 @@ jobs:
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: infrastructure/nodejs-app-task-definition.json
+          task-definition: Infrastructure/nodejs-app-task-definition.json
           container-name: aiclipx-${{ secrets.Env }}
           image: ${{ steps.build-image.outputs.image }}
 
