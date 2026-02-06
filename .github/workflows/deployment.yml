@@ -13,8 +13,8 @@ jobs:
       AWS_REGION: ${{ secrets.AWS_Region }}
       ENV: ${{ secrets.ENV }}
       ECS_CLUSTER: aiclipx-${{ secrets.ENV }}
-      ECS_SERVICE: ${{ secrets.ENV }}-v1
-      TASK_FAMILY: staging-v1
+      ECS_SERVICE: aiclipx-${{ secrets.ENV }}
+      TASK_FAMILY: aiclipx-${{ secrets.ENV }}
       CONTAINER_NAME: aiclipx-${{ secrets.ENV }}
 
     steps:
