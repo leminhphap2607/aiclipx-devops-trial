@@ -18,15 +18,10 @@ jobs:
       CONTAINER_NAME: aiclipx-${{ secrets.ENV }}
 
     steps:
-      # =========================
-      # Checkout source
-      # =========================
       - name: Checkout source
         uses: actions/checkout@v3
 
-      # =========================
       # Setup Node & Test
-      # =========================
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -40,9 +35,7 @@ jobs:
         run: npm test
         working-directory: application-example
 
-      # =========================
       # AWS Credentials
-      # =========================
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -50,19 +43,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_Region }}
 
-      # =========================
-      # Login to ECR
-      # =========================
+      # Login ECR
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-        with:
-          mask-password: true
 
-      # =========================
-      # Build & Push Docker image
-      # =========================
-      - name: Build, tag, and push image to Amazon ECR
+      # Build & Push image
+      - name: Build, tag, and push image
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -77,42 +64,56 @@ jobs:
 
           echo "image=$ECR_REGISTRY/aiclipx/${ENV}:${IMAGE_TAG}" >> $GITHUB_OUTPUT
 
-      # =========================
-      # Fetch current ECS task definition
-      # =========================
-      - name: Fetch current ECS task definition
+      # Lấy task definition hiện tại
+      - name: Fetch current task definition
         run: |
           aws ecs describe-task-definition \
             --task-definition ${TASK_FAMILY} \
             --query taskDefinition \
-            | jq 'del(
-                .taskDefinitionArn,
-                .revision,
-                .status,
-                .requiresAttributes,
-                .compatibilities,
-                .registeredAt,
-                .registeredBy
-              )' > task-definition.json
+            --region ${AWS_REGION} \
+          | jq 'del(
+              .taskDefinitionArn,
+              .revision,
+              .status,
+              .requiresAttributes,
+              .compatibilities,
+              .registeredAt,
+              .registeredBy
+            )' > task-definition.json
 
-      # =========================
-      # Render new task definition with new image
-      # =========================
-      - name: Render ECS task definition
-        id: task-def
+      # Render image mới
+      - name: Render new task definition
+        id: render-task
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-definition.json
           container-name: ${{ env.CONTAINER_NAME }}
           image: ${{ steps.build-image.outputs.image }}
 
-      # =========================
-      # Deploy ECS service
-      # =========================
-      - name: Deploy Amazon ECS task definition
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+      # Register revision mới
+      - name: Register new task definition
+        id: register-task
+        run: |
+          NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://${{ steps.render-task.outputs.task-definition }} \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          echo "TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
+
+      # Update service sang revision mới nhất
+      - name: Update ECS service
+        run: |
+          aws ecs update-service \
+            --cluster ${ECS_CLUSTER} \
+            --service ${ECS_SERVICE} \
+            --task-definition ${TASK_DEF_ARN} \
+            --region ${AWS_REGION}
+
+      # Wait deployment ổn định
+      - name: Wait for service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${ECS_CLUSTER} \
+            --services ${ECS_SERVICE} \
+            --region ${AWS_REGION}
